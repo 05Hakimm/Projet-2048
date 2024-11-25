@@ -1,0 +1,142 @@
+import random
+import tkinter as tk
+
+elements = {
+    2: "H", 4: "He", 8: "Be", 16: "C", 32: "O", 64: "Ne", 128: "Mg",
+    256: "Si", 512: "S", 1024: "Ar", 2048: "Ca"
+}
+
+class Game2048:
+    def __init__(self, master, taille=4):
+        self.master = master
+        self.taille = taille
+        self.grille = self.creer_grille(self.taille)
+        self.score = 0
+        self.label_score = tk.Label(master, text=f"Score: {self.score}", font=("Arial", 16))
+        self.label_score.pack()
+
+        self.canvas = tk.Canvas(master, width=400, height=400)
+        self.canvas.pack()
+
+        self.ajouter_tuiles_aleatoires()
+        self.afficher_grille()
+
+        master.bind("<KeyPress>", self.on_key_press)
+
+    def creer_grille(self, taille):
+        return [[0] * taille for _ in range(taille)]
+
+    def ajouter_tuiles_aleatoires(self):
+        taille = len(self.grille)
+        for _ in range(2):
+            while True:
+                x, y = random.randint(0, taille - 1), random.randint(0, taille - 1)
+                if self.grille[x][y] == 0:
+                    self.grille[x][y] = random.choice([2, 4])
+                    break
+
+    def fusionner_ligne(self, ligne):
+        ligne = [val for val in ligne if val != 0]
+        i = 0
+        while i < len(ligne) - 1:
+            if ligne[i] == ligne[i + 1]:
+                ligne[i] *= 2
+                self.score += ligne[i]
+                ligne.pop(i + 1)
+                ligne.append(0)
+            else:
+                i += 1
+        return ligne
+
+    def deplacer_ligne_gauche(self, ligne, taille):
+        ligne = self.fusionner_ligne(ligne)
+        return ligne + [0] * (taille - len(ligne))
+
+    def deplacer_ligne_droite(self, ligne, taille):
+        ligne = self.fusionner_ligne(ligne[::-1])[::-1]
+        return [0] * (taille - len(ligne)) + ligne
+
+    def deplacer_grille(self, direction):
+        taille = len(self.grille)
+        if direction == "gauche":
+            self.grille = [self.deplacer_ligne_gauche(ligne, taille) for ligne in self.grille]
+        elif direction == "droite":
+            self.grille = [self.deplacer_ligne_droite(ligne, taille) for ligne in self.grille]
+        elif direction == "haut":
+            grille_transposee = list(zip(*self.grille))
+            grille_transposee = [self.deplacer_ligne_gauche(list(ligne), taille) for ligne in grille_transposee]
+            self.grille = [list(ligne) for ligne in zip(*grille_transposee)]
+        elif direction == "bas":
+            grille_transposee = list(zip(*self.grille))
+            grille_transposee = [self.deplacer_ligne_droite(list(ligne), taille) for ligne in grille_transposee]
+            self.grille = [list(ligne) for ligne in zip(*grille_transposee)]
+
+    def est_grille_pleine(self):
+        return all(0 not in ligne for ligne in self.grille)
+
+    def mouvements_possibles(self):
+        taille = len(self.grille)
+        for i in range(taille):
+            for j in range(taille):
+                if self.grille[i][j] == 0:
+                    return True
+                if j < taille - 1 and self.grille[i][j] == self.grille[i][j + 1]:
+                    return True
+                if i < taille - 1 and self.grille[i][j] == self.grille[i + 1][j]:
+                    return True
+        return False
+
+    def est_fin_du_jeu(self):
+        return self.est_grille_pleine() and not self.mouvements_possibles()
+
+    def est_jeu_gagnant(self, valeur_gagnante=2048):
+        for ligne in self.grille:
+            if any(cell >= valeur_gagnante for cell in ligne):
+                return True
+        return False
+
+    def afficher_grille(self):
+        self.canvas.delete("all")
+        for i in range(self.taille):
+            for j in range(self.taille):
+                value = self.grille[i][j]
+                x1, y1 = j * 100, i * 100
+                x2, y2 = x1 + 100, y1 + 100
+                color = "#CDC1B4" if value == 0 else "#EEE4DA"
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+                if value != 0:
+                    element = elements.get(value, str(value))  
+                    self.canvas.create_text(x1 + 50, y1 + 50, text=element, font=("Arial", 24))
+        
+        self.label_score.config(text=f"Score: {self.score}")
+
+    def on_key_press(self, event):
+        grille_initiale = [ligne[:] for ligne in self.grille]
+        
+        if event.keysym == 'Left':
+            self.deplacer_grille("gauche")
+        elif event.keysym == 'Right':
+            self.deplacer_grille("droite")
+        elif event.keysym == 'Up':
+            self.deplacer_grille("haut")
+        elif event.keysym == 'Down':
+            self.deplacer_grille("bas")
+
+        if self.grille != grille_initiale:
+            self.ajouter_tuiles_aleatoires()
+
+        self.afficher_grille()
+
+        if self.est_jeu_gagnant():
+            self.canvas.create_text(200, 200, text="Félicitations! Vous avez gagné!", font=("Arial", 24, "bold"), fill="green")
+        elif self.est_fin_du_jeu():
+            self.canvas.create_text(200, 200, text="Fin de la partie! Aucun mouvement possible.", font=("Arial", 24, "bold"), fill="red")
+
+def main():
+    root = tk.Tk()
+    root.title("2048")
+    game = Game2048(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
